@@ -1,5 +1,6 @@
 import math
 import random
+from time import time
 from _decimal import Decimal
 from itertools import compress
 from scipy.stats import f, t
@@ -7,6 +8,9 @@ import numpy
 from functools import reduce
 import matplotlib.pyplot as plot
 
+fisherTime = 0
+studentTime = 0
+cochranTime = 0
 
 def regression_equation(x1, x2, x3, coeffs, importance=[True] * 11):
     factors_array = [1, x1, x2, x3, x1 * x2, x1 * x3, x2 * x3, x1 * x2 * x3, x1 ** 2, x2 ** 2, x3 ** 2]
@@ -51,6 +55,28 @@ natur_plan_raw = [[xmin[0],           xmin[1],           xmin[2]],
                   [x0[0],             x0[1],             -1.73*dx[2]+x0[2]],
                   [x0[0],             x0[1],             1.73*dx[2]+x0[2]],
                   [x0[0],             x0[1],             x0[2]]]
+
+
+def timer(func):
+    def wrap_func(*args, **kwargs):
+        t1 = time()
+        result = func(*args, **kwargs)
+        t2 = time()
+        if func.__name__ == "cochranCriteria":
+            global cochranTime
+            cochranTime += t2 - t1
+
+        if func.__name__ == "studentCriteria":
+            global studentTime
+            studentTime += t2 - t1
+
+        if func.__name__ == "fisherCriteria":
+            global fisherTime
+            fisherTime += t2 - t1
+
+        return result
+
+    return wrap_func
 
 
 def generate_factors_table(raw_array):
@@ -103,7 +129,7 @@ def find_coefficients(factors, y_vals):
     beta_coefficients = numpy.linalg.solve(coeffs, free_values)
     return list(beta_coefficients)
 
-
+@timer
 def cochran_criteria(m, N, y_table):
     def get_cochran_value(f1, f2, q):
         partResult1 = q / f2
@@ -129,7 +155,7 @@ def cochran_criteria(m, N, y_table):
         print("Gp > Gt => дисперсії нерівномірні - треба ще експериментів")
         return False
 
-
+@timer
 def student_criteria(m, N, y_table, beta_coefficients):
     def get_student_value(f3, q):
         return Decimal(abs(t.ppf(q / 2, f3))).quantize(Decimal('.0001')).__float__()
@@ -167,7 +193,7 @@ def student_criteria(m, N, y_table, beta_coefficients):
     # plot.show()
     return importance
 
-
+@timer
 def fisher_criteria(m, N, d, x_table, y_table, b_coefficients, importance):
     def get_fisher_value(f3, f4, q):
         return Decimal(abs(f.isf(q, f4, f3))).quantize(Decimal('.0001')).__float__()
@@ -206,3 +232,11 @@ print_equation(coefficients)
 importance = student_criteria(m, N, y_arr, coefficients)
 d = len(list(filter(None, importance)))
 fisher_criteria(m, N, d, natural_plan, y_arr, coefficients, importance)
+
+count = 10
+    for i in range(count):
+        main(m, n)
+
+    print(f"Середній час перевірки за критерієм Кохрена {cochranTime / count}")
+    print(f"Середній час перевірки за критерієм Стьюдента {studentTime / count}")
+    print(f"Середній час перевірки за критерієм Фішера {fisherTime / count}")
